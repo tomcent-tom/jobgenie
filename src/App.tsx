@@ -4,6 +4,19 @@ import "./App.css";
 import JobCard from "./JobCard";
 import { JobInfo } from "./JobCard";
 
+type JobSite = {
+  name: string;
+  isValid: (url: string) => boolean;
+};
+
+const jobSites: JobSite[] = [
+  {
+    name: "Lever",
+    isValid: (url: string) =>
+      /^https?:\/\/(jobs\.)?lever\.co\/[\w-]+\/[\w-]+(?:\/[\w-]+)?$/.test(url),
+  },
+];
+
 function App() {
   const [jobUrl, setJobUrl] = useState("");
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
@@ -51,6 +64,20 @@ function App() {
     }
   };
 
+  const getValidSite = (url: string): string | null => {
+    try {
+      new URL(url); // Basic URL validation
+      for (const site of jobSites) {
+        if (site.isValid(url)) {
+          return site.name;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col justify-center">
       <div className="p-8 flex flex-col items-center">
@@ -68,7 +95,7 @@ function App() {
               <input
                 type="url"
                 className="flex-1 p-2 border rounded"
-                placeholder="https://www.linkedin.com/jobs/view/3824888449/"
+                placeholder="https://jobs.lever.co/pennylane/145d939a-833c-4824-bd2d-410bca6e342b"
                 value={jobUrl}
                 onChange={(e) => setJobUrl(e.target.value)}
                 disabled={isLoading}
@@ -83,11 +110,48 @@ function App() {
                 Fetch job info
               </button>
             </div>
+            <div className="label w-full text-left">
+              <span className="label-text-alt text-gray-500">
+                Supported sources (more coming soon!):
+                <ul className="mt-1 space-y-1">
+                  {jobSites.map((site) => (
+                    <li className="flex items-center gap-2">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="1.5"
+                        stroke="currentColor"
+                        className={`size-6 ${
+                          jobUrl && site.name === getValidSite(jobUrl)
+                            ? "text-green-500"
+                            : "text-gray-200"
+                        }`}
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                        />
+                      </svg>
+
+                      <span>{site.name}</span>
+                    </li>
+                  ))}
+                </ul>
+              </span>
+            </div>
           </div>
         </div>
       </div>
       <div className="flex flex-col items-center">
-        <Suspense fallback={<div><span className="loading loading-ring loading-lg"></span></div>}>
+        <Suspense
+          fallback={
+            <div>
+              <span className="loading loading-ring loading-lg"></span>
+            </div>
+          }
+        >
           <JobCard jobInfo={jobInfo} isLoading={isLoading} />
         </Suspense>
       </div>
@@ -97,9 +161,9 @@ function App() {
             Copyright © {new Date().getFullYear()} - All right reserved by Tom
             Evers
           </p>
-          <a 
-            href="https://github.com/tomcent-tom/jobgenie" 
-            target="_blank" 
+          <a
+            href="https://github.com/tomcent-tom/jobgenie"
+            target="_blank"
             rel="noopener noreferrer"
             className="hover:opacity-80 transition-opacity"
           >
