@@ -3,24 +3,26 @@ import JobGenieLogo from "/logo.png";
 import "./App.css";
 import JobCard from "./JobCard";
 import { JobInfo } from "./JobCard";
-
-type JobSite = {
-  name: string;
-  isValid: (url: string) => boolean;
-};
-
-const jobSites: JobSite[] = [
-  {
-    name: "Lever",
-    isValid: (url: string) =>
-      /^https?:\/\/(jobs\.)?lever\.co\/[\w-]+\/[\w-]+(?:\/[\w-]+)?$/.test(url),
-  },
-];
+import { jobSites, JobSite } from "./JobSites";
 
 function App() {
   const [jobUrl, setJobUrl] = useState("");
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const getValidSite = (url: string): JobSite | null => {
+    try {
+      new URL(url); // Basic URL validation
+      for (const site of jobSites) {
+        if (site.isValid(url)) {
+          return site;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   const getJobInfo = async () => {
     if (!jobUrl) {
@@ -41,22 +43,20 @@ function App() {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
 
-      // Find your elements
-      const jsonLdScripts = doc.querySelector(
-        'script[type="application/ld+json"]'
-      );
-      if (jsonLdScripts) {
-        // Parse the JSON content
-        const jsonData = JSON.parse(jsonLdScripts.textContent || "");
-        console.log(jsonData);
-        setJobInfo({
-          companyName: jsonData.hiringOrganization.name || "...",
-          postingDate: jsonData.datePosted || "...",
-          jobTitle: jsonData.title || "...",
-        });
-      } else {
-        console.log("No JSON-LD script found");
+      const site = getValidSite(jobUrl);
+      if (!site) {
+        console.warn("Invalid job URL.");
+        return;
       }
+
+      const jobInfo = site.extractFn(doc);
+      if (!jobInfo) {
+        console.warn("No job info found.");
+        return;
+      }
+
+      setJobInfo(jobInfo);
+
     } catch (error) {
       console.error("Error processing URL:", error);
     } finally {
@@ -64,26 +64,14 @@ function App() {
     }
   };
 
-  const getValidSite = (url: string): string | null => {
-    try {
-      new URL(url); // Basic URL validation
-      for (const site of jobSites) {
-        if (site.isValid(url)) {
-          return site.name;
-        }
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  };
+  
 
   return (
     <div className="min-h-screen flex flex-col justify-center">
       <div className="p-8 flex flex-col items-center">
         <img src={JobGenieLogo} className="logo w-96" alt="JobGenie logo" />
         <h1 className="text-xl font-bold text-blue-900 text-center">
-          Find the job posted date.
+          Find hidden job info.
         </h1>
       </div>
       <div className="flex-1 flex items-center justify-center px-4">
@@ -95,7 +83,7 @@ function App() {
               <input
                 type="url"
                 className="flex-1 p-2 border rounded"
-                placeholder="https://jobs.lever.co/pennylane/145d939a-833c-4824-bd2d-410bca6e342b"
+                placeholder="https://jobs.lever.co/jobgenie/abcd123"
                 value={jobUrl}
                 onChange={(e) => setJobUrl(e.target.value)}
                 disabled={isLoading}
@@ -103,7 +91,11 @@ function App() {
 
               <button
                 onClick={() => getJobInfo()}
-                className="text-white bg-gradient-to-br from-purple-600 to-blue-500 hover:bg-gradient-to-bl focus:ring-4 focus:outline-none focus:ring-blue-300 dark:focus:ring-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 text-center "
+                className={`btn text-white bg-gradient-to-br 
+                  from-purple-600 to-blue-500 hover:bg-gradient-to-bl 
+                  focus:ring-4 focus:outline-none focus:ring-blue-300 
+                  dark:focus:ring-blue-800 font-medium 
+                  rounded-lg text-sm px-5 py-2.5 text-center ${!getValidSite(jobUrl) ? "btn-disabled" : ""}`}
                 type="button"
                 disabled={isLoading}
               >
@@ -123,7 +115,7 @@ function App() {
                         stroke-width="1.5"
                         stroke="currentColor"
                         className={`size-6 ${
-                          jobUrl && site.name === getValidSite(jobUrl)
+                          jobUrl && site.name === getValidSite(jobUrl)?.name
                             ? "text-green-500"
                             : "text-gray-200"
                         }`}
